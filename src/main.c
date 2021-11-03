@@ -1,3 +1,13 @@
+/**
+ * @file main.c
+ * @brief Node main source code file
+ * @version 0.1
+ * @date 2021-11-03
+ * 
+ * @copyright Copyright (c) 2021
+ * 
+ */
+
 #include <stdio.h>
 #include <stm32l4xx_hal.h>
 #include <string.h>
