@@ -1,0 +1,22 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "PlatformIO",
+			"task": "Build (nucleo_l432kc)",
+			"problemMatcher": [
+				"$platformio"
+			],
+			"group": "build",
+			"label": "PlatformIO: Build (nucleo_l432kc)"
+		},
+		{
+			"type": "PlatformIO",
+			"task": "Pre-Debug (nucleo_l432kc)",
+			"problemMatcher": [
+				"$platformio"
+			],
+			"label": "PlatformIO: Build in debug mode (nucleo_l432kc)"
+		}
+	]
+}
