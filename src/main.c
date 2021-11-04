@@ -19,6 +19,7 @@
 void USART2_Init(void);
 void LED_Init(void);
 void ADC_Init(void);
+void SystemClock_Config(void);
 
 static UART_HandleTypeDef h_UARTHandle;
 static ADC_HandleTypeDef h_ACDC1Handle;
@@ -30,6 +31,7 @@ HAL_StatusTypeDef err;
 int main(void)
 {   
 
+  SystemClock_Config();
   HAL_Init();
   SystemCoreClockUpdate();
 
@@ -41,9 +43,9 @@ int main(void)
   {
     strcpy(ADC_String, "");
     HAL_ADC_Start(&h_ACDC1Handle);
-    HAL_Delay(2);
+    HAL_Delay(4);
 
-    if(HAL_ADC_PollForConversion(&h_ACDC1Handle, 5) == HAL_OK) //Check that conversion completes
+    if(HAL_ADC_PollForConversion(&h_ACDC1Handle, 10) == HAL_OK) //Check that conversion completes
     {
       ADC_Value = HAL_ADC_GetValue(&h_ACDC1Handle); //Store ADC value
     }
@@ -54,7 +56,7 @@ int main(void)
     HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)"1000",strlen("1000"),HAL_MAX_DELAY);
     //HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)ADC_String,strlen(ADC_String),HAL_MAX_DELAY);
     
-    HAL_Delay(10);
+    HAL_Delay(100);
   }
 
   return 0;
@@ -97,17 +99,17 @@ void ADC_Init(void)
 
   //INIT ADC PIN
   GPIO_InitTypeDef ADCpin; //create an instance of GPIO_InitTypeDef C struct
-  ADCpin.Pin = GPIO_PIN_3; // Select pin PA3
+  ADCpin.Pin = GPIO_PIN_3; // Select pin PA3/A2
   ADCpin.Mode = GPIO_MODE_ANALOG; // Select Analog Mode
   ADCpin.Pull = GPIO_NOPULL; // Disable internal pull-up or pull-down resistor
-  HAL_GPIO_Init(GPIOA, &ADCpin); // initialize PA0 as analog input pin
+  HAL_GPIO_Init(GPIOA, &ADCpin); // initialize PA3 as analog input pin
 
   //INIT ADC 
   h_ACDC1Handle.Instance = ADC1; // create an instance of ADC1
   h_ACDC1Handle.Init.Resolution = ADC_RESOLUTION_12B; // select 12-bit resolution
   h_ACDC1Handle.Init.EOCSelection = ADC_EOC_SINGLE_CONV; //select  single conversion as a end of conversion event
   h_ACDC1Handle.Init.DataAlign = ADC_DATAALIGN_RIGHT; // set digital output data right justified
-  h_ACDC1Handle.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV1;
+  h_ACDC1Handle.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
   
   h_ACDC1Handle.Init.ContinuousConvMode = DISABLE;
   h_ACDC1Handle.Init.ScanConvMode = DISABLE;
@@ -121,13 +123,14 @@ void ADC_Init(void)
   HAL_ADC_Init(&h_ACDC1Handle);
 
   //INIT ADC CHANNEL
-  ADC_ChannelConfTypeDef Channel_AN5; // create an instance of ADC_ChannelConfTypeDef
-  Channel_AN5.Channel = ADC_CHANNEL_8; // select analog channel 8 (ADC1_IN8)
-  Channel_AN5.Rank = 1; // set rank to 1
-  Channel_AN5.SamplingTime = ADC_SAMPLETIME_2CYCLES_5; // set sampling time to 15 clock cycles
-  Channel_AN5.OffsetNumber = ADC_OFFSET_NONE;
-  Channel_AN5.Offset = 0;
-  HAL_ADC_ConfigChannel(&h_ACDC1Handle, &Channel_AN5); // select channel_0 for ADC2 module.
+  ADC_ChannelConfTypeDef Channel_AN; // create an instance of ADC_ChannelConfTypeDef
+  Channel_AN.Channel = ADC_CHANNEL_8; // select analog channel 8 (ADC1_IN8)
+  Channel_AN.Rank = 1; // set rank to 1
+  Channel_AN.SamplingTime = ADC_SAMPLETIME_2CYCLES_5; // set sampling time to 15 clock cycles
+  Channel_AN.OffsetNumber = ADC_OFFSET_NONE;
+  Channel_AN.SingleDiff = ADC_SINGLE_ENDED; //Single ended mode possibly changes the ADC reference points to Ground and ADD?
+  Channel_AN.Offset = 0;
+  HAL_ADC_ConfigChannel(&h_ACDC1Handle, &Channel_AN); // select channel_0 for ADC2 module.
   
 }
 
@@ -150,6 +153,63 @@ void SysTick_Handler(void)
 {
   HAL_IncTick();
   HAL_SYSTICK_IRQHandler();
+}
+
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
+
+  /** Configure LSE Drive Capability 
+  */
+  HAL_PWR_EnableBkUpAccess();
+  __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
+  /** Initializes the CPU, AHB and APB busses clocks 
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSE|RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
+  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
+  RCC_OscInitStruct.MSICalibrationValue = 0;
+  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_MSI;
+  RCC_OscInitStruct.PLL.PLLM = 1;
+  RCC_OscInitStruct.PLL.PLLN = 16;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
+  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
+  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
+  HAL_RCC_OscConfig(&RCC_OscInitStruct);
+ 
+  /** Initializes the CPU, AHB and APB busses clocks 
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+  HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1);
+
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART2|RCC_PERIPHCLK_ADC;
+  PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
+  PeriphClkInit.AdcClockSelection = RCC_ADCCLKSOURCE_PLLSAI1;
+  PeriphClkInit.PLLSAI1.PLLSAI1Source = RCC_PLLSOURCE_MSI;
+  PeriphClkInit.PLLSAI1.PLLSAI1M = 1;
+  PeriphClkInit.PLLSAI1.PLLSAI1N = 16;
+  PeriphClkInit.PLLSAI1.PLLSAI1P = RCC_PLLP_DIV7;
+  PeriphClkInit.PLLSAI1.PLLSAI1Q = RCC_PLLQ_DIV2;
+  PeriphClkInit.PLLSAI1.PLLSAI1R = RCC_PLLR_DIV2;
+  PeriphClkInit.PLLSAI1.PLLSAI1ClockOut = RCC_PLLSAI1_ADC1CLK;
+  HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit);
+
+  /** Configure the main internal regulator output voltage 
+  */
+  HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1);
+  /** Enable MSI Auto calibration 
+  */
+  HAL_RCCEx_EnableMSIPLLMode();
 }
 
 void NMI_Handler(void)
