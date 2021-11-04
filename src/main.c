@@ -51,10 +51,25 @@ int main(void)
     }
     HAL_ADC_Stop(&h_ACDC1Handle); // stop conversion 
     
-    itoa(ADC_Value, ADC_String, 10);
+    if (ADC_Value >= 0 && ADC_Value < 10)
+    {
+      sprintf(ADC_String,"000%d",ADC_Value);
+    }
+    else if (ADC_Value >= 10 && ADC_Value < 100)
+    {
+      sprintf(ADC_String,"00%d",ADC_Value);
+    }
+    else if (ADC_Value >= 100 && ADC_Value < 1000)
+    {
+      sprintf(ADC_String,"0%d",ADC_Value);
+    }
+    else if (ADC_Value >= 1000)
+    {
+      sprintf(ADC_String,"%d",ADC_Value);
+    }
+    
 
-    HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)"1000",strlen("1000"),HAL_MAX_DELAY);
-    //HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)ADC_String,strlen(ADC_String),HAL_MAX_DELAY);
+    HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)ADC_String,strlen(ADC_String)-1,HAL_MAX_DELAY);
     
     HAL_Delay(100);
   }
@@ -126,7 +141,7 @@ void ADC_Init(void)
   ADC_ChannelConfTypeDef Channel_AN; // create an instance of ADC_ChannelConfTypeDef
   Channel_AN.Channel = ADC_CHANNEL_8; // select analog channel 8 (ADC1_IN8)
   Channel_AN.Rank = 1; // set rank to 1
-  Channel_AN.SamplingTime = ADC_SAMPLETIME_2CYCLES_5; // set sampling time to 15 clock cycles
+  Channel_AN.SamplingTime = ADC_SAMPLETIME_12CYCLES_5; // set sampling time to 15 clock cycles
   Channel_AN.OffsetNumber = ADC_OFFSET_NONE;
   Channel_AN.SingleDiff = ADC_SINGLE_ENDED; //Single ended mode possibly changes the ADC reference points to Ground and ADD?
   Channel_AN.Offset = 0;
