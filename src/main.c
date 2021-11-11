@@ -24,9 +24,9 @@ void SystemClock_Config(void);
 static UART_HandleTypeDef h_UARTHandle;
 static ADC_HandleTypeDef h_ACDC1Handle;
 
-uint32_t ADC_Value = 1234;
+uint32_t ADC_Value = 0;
 char ADC_String[5];
-HAL_StatusTypeDef err;
+uint8_t Rx_data[10];
 
 int main(void)
 {   
@@ -39,6 +39,8 @@ int main(void)
   LED_Init();
   ADC_Init();
 
+
+  HAL_UART_Receive_IT (&h_UARTHandle, Rx_data, 4);
   while(1)
   {
     strcpy(ADC_String, "");
@@ -70,12 +72,23 @@ int main(void)
     
 
     HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)ADC_String,strlen(ADC_String)-1,HAL_MAX_DELAY);
+    HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)"\n",sizeof(char),HAL_MAX_DELAY);
+    HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)"\r",sizeof(char),HAL_MAX_DELAY);
     
-    HAL_Delay(100);
+    HAL_Delay(1000);
   }
 
   return 0;
 }
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) 
+{
+  HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)"TEST",strlen("TEST"),HAL_MAX_DELAY);
+  HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)"\n",sizeof(char),HAL_MAX_DELAY);
+  HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)"\r",sizeof(char),HAL_MAX_DELAY);
+  HAL_UART_Receive_IT(&h_UARTHandle, Rx_data, 4); 
+}
+
 
 void USART2_Init(void)
 {
@@ -84,19 +97,19 @@ void USART2_Init(void)
   __HAL_RCC_USART2_CLK_ENABLE();
 
   GPIO_InitTypeDef GPIO_InitStruct;
-    GPIO_InitStruct.Pin = GPIO_PIN_9; //TX
+    GPIO_InitStruct.Pin = GPIO_PIN_2; //TX
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Alternate = GPIO_AF7_USART1; 
+    GPIO_InitStruct.Alternate = GPIO_AF7_USART2; 
     GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA,&GPIO_InitStruct);
   
-    GPIO_InitStruct.Alternate = GPIO_AF7_USART1; //RX
-    GPIO_InitStruct.Pin = GPIO_PIN_10;
+    GPIO_InitStruct.Alternate = GPIO_AF3_USART2; //RX
+    GPIO_InitStruct.Pin = GPIO_PIN_15;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  h_UARTHandle.Instance        = USART1;
+  h_UARTHandle.Instance        = USART2;
   h_UARTHandle.Init.BaudRate   = 9600;
   h_UARTHandle.Init.WordLength = UART_WORDLENGTH_8B;
   h_UARTHandle.Init.StopBits   = UART_STOPBITS_1;
@@ -105,6 +118,8 @@ void USART2_Init(void)
   h_UARTHandle.Init.Mode       = UART_MODE_TX_RX;
 
   HAL_UART_Init(&h_UARTHandle);
+
+  //__HAL_UART_ENABLE_IT(&h_UARTHandle, UART_IT_RXNE);
 }
 
 void ADC_Init(void)
