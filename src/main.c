@@ -12,12 +12,8 @@
 #include <stm32l4xx_hal.h>
 #include <string.h>
 
-#define LED_PIN GPIO_PIN_3
-
-#define LED_GPIO_PORT GPIOB
-
 void USART2_Init(void);
-void LED_Init(void);
+void GPIO_init(void);
 void ADC_Init(void);
 void SystemClock_Config(void);
 
@@ -36,11 +32,14 @@ int main(void)
   SystemCoreClockUpdate();
 
   USART2_Init();
-  LED_Init();
   ADC_Init();
 
+  GPIO_init();
 
-  HAL_UART_Receive_IT (&h_UARTHandle, Rx_data, 4);
+  HAL_GPIO_WritePin(GPIOA, 8, GPIO_PIN_SET);
+
+
+  //HAL_UART_Receive_IT (&h_UARTHandle, Rx_data, 4);
   while(1)
   {
     strcpy(ADC_String, "");
@@ -72,8 +71,8 @@ int main(void)
     
 
     HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)ADC_String,strlen(ADC_String)-1,HAL_MAX_DELAY);
-    HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)"\n",sizeof(char),HAL_MAX_DELAY);
-    HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)"\r",sizeof(char),HAL_MAX_DELAY);
+    //HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)"\n",sizeof(char),HAL_MAX_DELAY);
+    //HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)"\r",sizeof(char),HAL_MAX_DELAY);
     
     HAL_Delay(1000);
   }
@@ -97,19 +96,19 @@ void USART2_Init(void)
   __HAL_RCC_USART2_CLK_ENABLE();
 
   GPIO_InitTypeDef GPIO_InitStruct;
-    GPIO_InitStruct.Pin = GPIO_PIN_2; //TX
+    GPIO_InitStruct.Pin = GPIO_PIN_9; //TX
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Alternate = GPIO_AF7_USART2; 
+    GPIO_InitStruct.Alternate = GPIO_AF7_USART1; 
     GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA,&GPIO_InitStruct);
   
-    GPIO_InitStruct.Alternate = GPIO_AF3_USART2; //RX
-    GPIO_InitStruct.Pin = GPIO_PIN_15;
+    GPIO_InitStruct.Alternate = GPIO_AF7_USART1; 
+    GPIO_InitStruct.Pin = GPIO_PIN_10; //RX PA10/
     GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  h_UARTHandle.Instance        = USART2;
+  h_UARTHandle.Instance        = USART1;
   h_UARTHandle.Init.BaudRate   = 9600;
   h_UARTHandle.Init.WordLength = UART_WORDLENGTH_8B;
   h_UARTHandle.Init.StopBits   = UART_STOPBITS_1;
@@ -164,20 +163,18 @@ void ADC_Init(void)
   
 }
 
-
-void LED_Init(void)
+void GPIO_init(void)
 {
-  __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
 
-  GPIO_InitTypeDef GPIO_InitStruct;
-    GPIO_InitStruct.Pin = LED_PIN;
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStruct.Pull = GPIO_PULLUP;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-
-  HAL_GPIO_Init(LED_GPIO_PORT,&GPIO_InitStruct);
+  GPIO_InitTypeDef GPIOPin; //create an instance of GPIO_InitTypeDef C struct
+  GPIOPin.Pin = GPIO_PIN_8; // Select pin PA3/A2
+  GPIOPin.Mode = GPIO_MODE_OUTPUT_PP; // Select Digital output
+  GPIOPin.Pull = GPIO_NOPULL; // Disable internal pull-up or pull-down resistor
+  HAL_GPIO_Init(GPIOA, &GPIOPin); // initialize PA3 as analog input pin
 
 }
+
 
 void SysTick_Handler(void)
 {
