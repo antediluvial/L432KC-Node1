@@ -39,7 +39,7 @@ int main(void)
   LED_Init();
 
   HAL_GPIO_WritePin(GPIOA, 8, GPIO_PIN_SET);
-
+  //HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,GPIO_PIN_SET);
 
   //HAL_UART_Receive_IT (&h_UARTHandle, Rx_data, 4);
   while(1)
@@ -78,7 +78,14 @@ int main(void)
     
     //HAL_Delay(1000);
 
-    if (HAL_GPIO_ReadPin())
+    if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_4) == GPIO_PIN_SET)
+    {
+      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,GPIO_PIN_SET);
+    }
+    else
+    {
+      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,GPIO_PIN_RESET);
+    }
 
 
     HAL_Delay(1);
@@ -173,6 +180,7 @@ void ADC_Init(void)
 void GPIO_init(void)
 {
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   //PA8 set as a digital output to transmit MAX3485 enable signal
   GPIO_InitTypeDef GPIOPin; //create an instance of GPIO_InitTypeDef C struct
@@ -185,7 +193,7 @@ void GPIO_init(void)
   GPIO_InitTypeDef GPIOPin2;
   GPIOPin.Pin = GPIO_PIN_4; // Select pin PA4
   GPIOPin.Mode = GPIO_MODE_INPUT; // Select Digital input
-  GPIOPin.Pull = GPIO_NOPULL; // Disable internal pull-up or pull-down resistor
+  GPIOPin.Pull = GPIO_PULLUP; // Disable internal pull-up or pull-down resistor
   HAL_GPIO_Init(GPIOA, &GPIOPin2); // initialize PA8 as analog input pin
 
 }
@@ -193,6 +201,8 @@ void GPIO_init(void)
 void LED_Init(void)
 {
     __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
 
   GPIO_InitTypeDef GPIO_InitStruct;
     GPIO_InitStruct.Pin = GPIO_PIN_3;
