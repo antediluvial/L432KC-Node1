@@ -23,8 +23,6 @@ static ADC_HandleTypeDef h_ACDC1Handle;
 
 uint32_t ADC_Value = 0;
 char ADC_String[5];
-uint8_t Rx_data[10];
-int mflag=0;
 
 int main(void)
 {   
@@ -40,9 +38,9 @@ int main(void)
   LED_Init();
 
   HAL_GPIO_WritePin(GPIOA, 8, GPIO_PIN_RESET); //Set MAX3485 receive enable signal
-    NVIC_EnableIRQ(USART2_IRQn); //Enable USART interrupt handeler
+  NVIC_EnableIRQ(USART2_IRQn); //Enable USART interrupt handeler
   __enable_irq();
-  //HAL_UART_Receive_IT (&h_UARTHandle, Rx_data, 4);
+  
   while(1)
   {
 /*     strcpy(ADC_String, "");
@@ -72,15 +70,8 @@ int main(void)
       sprintf(ADC_String,"%d",ADC_Value);
     } */
     
-
     //HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)ADC_String,strlen(ADC_String)-1,HAL_MAX_DELAY);
-    HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)"T",sizeof(char),HAL_MAX_DELAY);
-    //HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)"\n",sizeof(char),HAL_MAX_DELAY);
-    //HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)"\r",sizeof(char),HAL_MAX_DELAY);
-    
-    HAL_Delay(1000);
-
-
+    //HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)"T",sizeof(char),HAL_MAX_DELAY);
 
     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_4) == GPIO_PIN_SET)
     {
@@ -92,46 +83,38 @@ int main(void)
     }
 
 
-    HAL_Delay(1);
+    HAL_Delay(10);
   }
 
   return 0;
 }
 
-void USART1_IRQHandler(void)
-{
-  HAL_GPIO_WritePin(GPIOA, 8, GPIO_PIN_SET); //Set MAX3485 transmit enable signal
-  //__HAL_UART_DISABLE_IT(&h_UARTHandle, UART_IT_RXNE);
-  __disable_irq();
-  HAL_UART_Transmit(&h_UARTHandle, (uint8_t *)"TEST", strlen("TEST"), HAL_MAX_DELAY);
-  HAL_UART_Transmit(&h_UARTHandle, (uint8_t *)"\n", sizeof(char), HAL_MAX_DELAY);
-  HAL_UART_Transmit(&h_UARTHandle, (uint8_t *)"\r", sizeof(char), HAL_MAX_DELAY);
-  __enable_irq();
- // __HAL_UART_ENABLE_IT(&h_UARTHandle, UART_IT_RXNE);
- HAL_GPIO_WritePin(GPIOA, 8, GPIO_PIN_RESET); //Set MAX3485 receive enable signal
-}
-
 void USART2_IRQHandler(void)
 {
- 
+  __disable_irq();
+
   HAL_UART_Transmit(&h_UARTHandle, (uint8_t *)"TEST", strlen("TEST"), HAL_MAX_DELAY);
   HAL_UART_Transmit(&h_UARTHandle, (uint8_t *)"\n", sizeof(char), HAL_MAX_DELAY);
   HAL_UART_Transmit(&h_UARTHandle, (uint8_t *)"\r", sizeof(char), HAL_MAX_DELAY);
 
-  unsigned char c = 0;
-  if(USART2->ISR & USART_ISR_RXNE) //if data available in DR register. p737
-  {
-    c = USART1->RDR;
-    if(c == 0x01){
-      mflag = 1;
-    }
-    else{
-      mflag = 2;
-    }
+  __HAL_UART_SEND_REQ(&h_UARTHandle, UART_RXDATA_FLUSH_REQUEST);
+  __HAL_UART_CLEAR_IT(&h_UARTHandle,UART_CLEAR_OREF);
+  __enable_irq();
 
-    __disable_irq();
-  }
+}
 
+void USART1_IRQHandler(void)
+{
+  __disable_irq();
+  HAL_GPIO_WritePin(GPIOA, 8, GPIO_PIN_SET); //Set MAX3485 transmit enable signal
+
+  HAL_UART_Transmit(&h_UARTHandle, (uint8_t *)"1111", sizeof("1111"), HAL_MAX_DELAY);
+
+  __HAL_UART_SEND_REQ(&h_UARTHandle, UART_RXDATA_FLUSH_REQUEST); //Flush RX buffers and whatsnots
+  __HAL_UART_CLEAR_IT(&h_UARTHandle,UART_CLEAR_OREF);
+
+   HAL_GPIO_WritePin(GPIOA, 8, GPIO_PIN_RESET); //Set MAX3485 receive enable signal
+  __enable_irq();
 
 }
 
@@ -142,20 +125,20 @@ void USART2_Init(void)
   __HAL_RCC_USART2_CLK_ENABLE();
 
   GPIO_InitTypeDef GPIO_InitStruct;
-    GPIO_InitStruct.Pin = GPIO_PIN_2; //PA9 TX
+    GPIO_InitStruct.Pin = GPIO_PIN_9; //PA9 TX
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Alternate = GPIO_AF7_USART2; 
+    GPIO_InitStruct.Alternate =  GPIO_AF7_USART1; 
     GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA,&GPIO_InitStruct);
   
-    GPIO_InitStruct.Alternate = GPIO_AF3_USART2;
-    GPIO_InitStruct.Pin = GPIO_PIN_15; //PA10 RX 
+    GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
+    GPIO_InitStruct.Pin = GPIO_PIN_10; //PA10 RX 
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  h_UARTHandle.Instance        = USART2;
-  h_UARTHandle.Init.BaudRate   = 115200;
+  h_UARTHandle.Instance        = USART1;
+  h_UARTHandle.Init.BaudRate   = 9600;
   h_UARTHandle.Init.WordLength = UART_WORDLENGTH_8B;
   h_UARTHandle.Init.StopBits   = UART_STOPBITS_1;
   h_UARTHandle.Init.Parity     = UART_PARITY_NONE;
@@ -164,9 +147,7 @@ void USART2_Init(void)
 
   HAL_UART_Init(&h_UARTHandle);
 
-  //__HAL_UART_ENABLE_IT(&h_UARTHandle, UART_IT_IDLE);
-  //USART2->CR1 |= USART_CR1_RXNEIE | USART_CR1_TXEIE;
-  USART2->CR1 |= USART_CR1_RXNEIE; //Enable RX interrupt
+  USART1->CR1 |= USART_CR1_RXNEIE; //Enable RX interrupt
 
 }
 
