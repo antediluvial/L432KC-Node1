@@ -22,7 +22,9 @@ static UART_HandleTypeDef h_UARTHandle;
 static ADC_HandleTypeDef h_ACDC1Handle;
 
 uint32_t ADC_Value = 0;
-char ADC_String[5];
+char ADC_String[5] = "1234";
+uint32_t tickstorage=0;
+int RPM=0;
 
 int main(void)
 {   
@@ -32,7 +34,7 @@ int main(void)
   SystemCoreClockUpdate();
 
   USART2_Init();
-  //ADC_Init();
+  ADC_Init();
 
   GPIO_init();
   LED_Init();
@@ -43,7 +45,7 @@ int main(void)
   
   while(1)
   {
-/*     strcpy(ADC_String, "");
+    strcpy(ADC_String, "");
     HAL_ADC_Start(&h_ACDC1Handle);
     HAL_Delay(4);
 
@@ -68,13 +70,21 @@ int main(void)
     else if (ADC_Value >= 1000)
     {
       sprintf(ADC_String,"%d",ADC_Value);
-    } */
+    }
     
     //HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)ADC_String,strlen(ADC_String)-1,HAL_MAX_DELAY);
     //HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)"T",sizeof(char),HAL_MAX_DELAY);
 
     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_4) == GPIO_PIN_SET)
     {
+      uint32_t tick_count = HAL_GetTick();
+
+      uint32_t elapsed_time = tick_count - tickstorage;
+
+      RPM = (1/elapsed_time)*60; //Events per second times 60 to calculate RPM
+
+      tickstorage = tick_count; //Reset event tick storage for next calculation
+
       HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,GPIO_PIN_SET);
     }
     else
@@ -108,7 +118,7 @@ void USART1_IRQHandler(void)
   __disable_irq();
   HAL_GPIO_WritePin(GPIOA, 8, GPIO_PIN_SET); //Set MAX3485 transmit enable signal
 
-  HAL_UART_Transmit(&h_UARTHandle, (uint8_t *)"1111", sizeof("1111"), HAL_MAX_DELAY);
+  HAL_UART_Transmit(&h_UARTHandle, (uint8_t *)ADC_String, sizeof(ADC_String), HAL_MAX_DELAY);
 
   __HAL_UART_SEND_REQ(&h_UARTHandle, UART_RXDATA_FLUSH_REQUEST); //Flush RX buffers and whatsnots
   __HAL_UART_CLEAR_IT(&h_UARTHandle,UART_CLEAR_OREF);
