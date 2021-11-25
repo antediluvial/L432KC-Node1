@@ -12,7 +12,8 @@
 #include <stm32l4xx_hal.h>
 #include <string.h>
 
-void USART2_Init(void);
+void USART1_Init(void);
+void USART1_Init(void);
 void GPIO_init(void);
 void ADC_Init(void);
 void SystemClock_Config(void);
@@ -33,7 +34,7 @@ int main(void)
   HAL_Init();
   SystemCoreClockUpdate();
 
-  USART2_Init();
+  USART1_Init();
   ADC_Init();
 
   GPIO_init();
@@ -128,7 +129,7 @@ void USART1_IRQHandler(void)
 
 }
 
-void USART2_Init(void)
+void USART1_Init(void)
 {
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_USART1_CLK_ENABLE();
@@ -159,6 +160,11 @@ void USART2_Init(void)
 
   USART1->CR1 |= USART_CR1_RXNEIE; //Enable RX interrupt
 
+}
+
+void USART2_Init(void)
+{
+  
 }
 
 void ADC_Init(void)
