@@ -13,20 +13,31 @@
 #include <string.h>
 
 void USART1_Init(void);
-void USART1_Init(void);
+void USART2_Init(void);
 void GPIO_init(void);
 void ADC_Init(void);
 void SystemClock_Config(void);
 void LED_Init(void);
 
+void Read_RPM(void);
+
+void sanitize_ADC(void);
+void sanitize_RPM(void);
+
 static UART_HandleTypeDef h_UARTHandle;
 static ADC_HandleTypeDef h_ACDC1Handle;
 
 uint32_t ADC_Value = 0;
-char ADC_String[5] = "1234";
-uint32_t tickstorage=0;
+char ADC_String[5] = "0";
+char RPM_String[5] = "0";
+char Data_String[11] = "";
+uint32_t tickstorage;
 int RPM=0;
 
+uint32_t tick_count;
+uint32_t elapsed_time;
+
+int count=0;
 int main(void)
 {   
   __disable_irq();
@@ -40,13 +51,14 @@ int main(void)
   GPIO_init();
   LED_Init();
 
-  HAL_GPIO_WritePin(GPIOA, 8, GPIO_PIN_RESET); //Set MAX3485 receive enable signal
-  NVIC_EnableIRQ(USART2_IRQn); //Enable USART interrupt handeler
+  HAL_GPIO_WritePin(GPIOA, 8, GPIO_PIN_SET); //Set MAX3485 transmit enable signal
+  //NVIC_EnableIRQ(USART2_IRQn); //Enable USART interrupt handeler
   __enable_irq();
   
+  tickstorage = HAL_GetTick(); //Get start tick count for first RPM calcluation
+
   while(1)
   {
-    strcpy(ADC_String, "");
     HAL_ADC_Start(&h_ACDC1Handle);
     HAL_Delay(4);
 
@@ -56,33 +68,37 @@ int main(void)
     }
     HAL_ADC_Stop(&h_ACDC1Handle); // stop conversion 
     
-    if (ADC_Value >= 0 && ADC_Value < 10)
-    {
-      sprintf(ADC_String,"000%d",ADC_Value);
-    }
-    else if (ADC_Value >= 10 && ADC_Value < 100)
-    {
-      sprintf(ADC_String,"00%d",ADC_Value);
-    }
-    else if (ADC_Value >= 100 && ADC_Value < 1000)
-    {
-      sprintf(ADC_String,"0%d",ADC_Value);
-    }
-    else if (ADC_Value >= 1000)
-    {
-      sprintf(ADC_String,"%d",ADC_Value);
-    }
-    
-    //HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)ADC_String,strlen(ADC_String)-1,HAL_MAX_DELAY);
-    //HAL_UART_Transmit(&h_UARTHandle,(uint8_t*)"T",sizeof(char),HAL_MAX_DELAY);
+    sanitize_ADC();
+    Read_RPM();
+    sanitize_RPM();
 
-    if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_4) == GPIO_PIN_SET)
+    sprintf(Data_String, "T%sP%s", ADC_String, RPM_String);
+
+    if (count == 10)
     {
-      uint32_t tick_count = HAL_GetTick();
+      HAL_UART_Transmit(&h_UARTHandle, (uint8_t *)Data_String, strlen(Data_String), HAL_MAX_DELAY);
+      count=0;
+    }
+    else{
+      count++;
+    }
 
-      uint32_t elapsed_time = tick_count - tickstorage;
 
-      RPM = (1/elapsed_time)*60; //Events per second times 60 to calculate RPM
+    HAL_Delay(10);
+  }
+
+  return 0;
+}
+
+void Read_RPM(void)
+{
+  if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET)
+    {
+      tick_count = HAL_GetTick();
+
+      elapsed_time = tick_count - tickstorage;
+
+      RPM = 60000/elapsed_time; //Events per second times 60 to calculate RPM
 
       tickstorage = tick_count; //Reset event tick storage for next calculation
 
@@ -91,13 +107,57 @@ int main(void)
     else
     {
       HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,GPIO_PIN_RESET);
+      if (RPM > 0)
+      {
+        RPM--;
+      }
+      
     }
 
+}
 
-    HAL_Delay(10);
+void sanitize_ADC(void)
+{
+  strcpy(ADC_String, "");
+  if (ADC_Value >= 0 && ADC_Value < 10)
+  {
+    sprintf(ADC_String,"000%d",ADC_Value);
+  }
+  else if (ADC_Value >= 10 && ADC_Value < 100)
+  {
+    sprintf(ADC_String,"00%d",ADC_Value);
+  }
+  else if (ADC_Value >= 100 && ADC_Value < 1000)
+  {
+    sprintf(ADC_String,"0%d",ADC_Value);
+  }
+  else if (ADC_Value >= 1000)
+  {
+    sprintf(ADC_String,"%d",ADC_Value);
   }
 
-  return 0;
+}
+
+void sanitize_RPM(void)
+{
+  strcpy(RPM_String, "");
+  if (RPM >= 0 && RPM < 10)
+  {
+    sprintf(RPM_String,"000%d",RPM);
+  }
+  else if (RPM >= 10 && RPM < 100)
+  {
+    sprintf(RPM_String,"00%d",RPM);
+  }
+  else if (RPM >= 100 && RPM < 1000)
+  {
+    sprintf(RPM_String,"0%d",RPM);
+  }
+  else if (RPM >= 1000)
+  {
+    sprintf(RPM_String,"%d",RPM);
+  }
+
 }
 
 void USART2_IRQHandler(void)
@@ -119,6 +179,7 @@ void USART1_IRQHandler(void)
   __disable_irq();
   HAL_GPIO_WritePin(GPIOA, 8, GPIO_PIN_SET); //Set MAX3485 transmit enable signal
 
+  HAL_Delay(10);
   HAL_UART_Transmit(&h_UARTHandle, (uint8_t *)ADC_String, sizeof(ADC_String), HAL_MAX_DELAY);
 
   __HAL_UART_SEND_REQ(&h_UARTHandle, UART_RXDATA_FLUSH_REQUEST); //Flush RX buffers and whatsnots
@@ -158,13 +219,41 @@ void USART1_Init(void)
 
   HAL_UART_Init(&h_UARTHandle);
 
-  USART1->CR1 |= USART_CR1_RXNEIE; //Enable RX interrupt
+  //USART1->CR1 |= USART_CR1_RXNEIE; //Enable RX interrupt
 
 }
 
 void USART2_Init(void)
 {
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_USART1_CLK_ENABLE();
+  __HAL_RCC_USART2_CLK_ENABLE();
+
+  GPIO_InitTypeDef GPIO_InitStruct;
+    GPIO_InitStruct.Pin = GPIO_PIN_2; //PA2 TX
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Alternate =  GPIO_AF7_USART2; 
+    GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA,&GPIO_InitStruct);
   
+    GPIO_InitStruct.Alternate = GPIO_AF3_USART2;
+    GPIO_InitStruct.Pin = GPIO_PIN_15; //PA15 RX 
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  h_UARTHandle.Instance        = USART2;
+  h_UARTHandle.Init.BaudRate   = 115200;
+  h_UARTHandle.Init.WordLength = UART_WORDLENGTH_8B;
+  h_UARTHandle.Init.StopBits   = UART_STOPBITS_1;
+  h_UARTHandle.Init.Parity     = UART_PARITY_NONE;
+  h_UARTHandle.Init.HwFlowCtl  = UART_HWCONTROL_NONE;
+  h_UARTHandle.Init.Mode       = UART_MODE_TX_RX;
+
+  HAL_UART_Init(&h_UARTHandle);
+
+  //USART1->CR2 |= USART_CR1_RXNEIE; //Enable RX interrupt
+
 }
 
 void ADC_Init(void)
@@ -214,6 +303,8 @@ void GPIO_init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_ADC_CLK_ENABLE();
+  __HAL_RCC_USART1_CLK_ENABLE();
+  __HAL_RCC_USART2_CLK_ENABLE();
 
   //PA8 set as a digital output to transmit MAX3485 enable signal
   GPIO_InitTypeDef GPIOPin; //create an instance of GPIO_InitTypeDef C struct
@@ -222,12 +313,19 @@ void GPIO_init(void)
   GPIOPin.Pull = GPIO_NOPULL; // Disable internal pull-up or pull-down resistor
   HAL_GPIO_Init(GPIOA, &GPIOPin); // initialize PA8 as analog input pin
 
-  //Pin PA¤ Set as digital input to monitor hall effect sensor output
-  GPIO_InitTypeDef GPIOPin2;
+  //Pin PA4 Set as digital input to monitor hall effect sensor output
+/*   GPIO_InitTypeDef GPIOPin2;
   GPIOPin.Pin = GPIO_PIN_4; // Select pin PA4
   GPIOPin.Mode = GPIO_MODE_INPUT; // Select Digital input
   GPIOPin.Pull = GPIO_PULLUP; // Disable internal pull-up or pull-down resistor
-  HAL_GPIO_Init(GPIOA, &GPIOPin2); // initialize PA8 as analog input pin
+  HAL_GPIO_Init(GPIOA, &GPIOPin2); // initialize PA8 as analog input pin */
+
+  //Pin PB5/D11 Set as digital input to monitor hall effect sensor output
+  GPIO_InitTypeDef GPIOPin2;
+  GPIOPin.Pin = GPIO_PIN_5; // Select pin PB5/D11
+  GPIOPin.Mode = GPIO_MODE_INPUT; // Select Digital input
+  GPIOPin.Pull = GPIO_PULLUP; // Disable internal pull-up or pull-down resistor
+  HAL_GPIO_Init(GPIOB, &GPIOPin2); // initialize PA8 as analog input pin
 
 }
 
